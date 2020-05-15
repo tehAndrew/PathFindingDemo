@@ -1,6 +1,7 @@
 import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Cell;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -11,25 +12,21 @@ import java.util.HashMap;
 import java.util.Set;
 
 public class SimArea extends Canvas {
-    private final byte EDGE_TO_NODE_NONE = 0;
-    private final byte EDGE_TO_NODE_NORMAL = 1;
-    private final byte EDGE_TO_NODE_SLOW = 2;
-
     private int gridSide;
     private int cellsWidth;
     private int cellsHeight;
-    private byte[][] cells;
-    private Position startPos;
-    private Position goalPos;
+    private CellType[][] cells;
+    private Pair startPos;
+    private Pair goalPos;
     private HashMap<String, SimAreaTool> toolTable;
     private SimAreaTool selectedTool;
 
     private void initCells() {
-        cells = new byte[cellsWidth][cellsHeight];
+        cells = new CellType[cellsWidth][cellsHeight];
 
         for (int x = 0; x < cellsWidth; x++) {
             for (int y = 0; y < cellsHeight; y++) {
-                cells[x][y] = EDGE_TO_NODE_NORMAL;
+                cells[x][y] = CellType.NORMAL;
             }
         }
     }
@@ -48,11 +45,11 @@ public class SimArea extends Canvas {
         for (int x = 0; x < cellsWidth; x++) {
             for (int y = 0; y < cellsHeight; y++) {
                 switch (cells[x][y]) {
-                    case EDGE_TO_NODE_NONE:
+                    case IMPASSABLE:
                         g2d.setFill(Color.BLACK);
                         g2d.fillRect(x * gridSide, y * gridSide, gridSide, gridSide);
                         break;
-                    case EDGE_TO_NODE_SLOW:
+                    case OBSTACLE:
                         g2d.setFill(Color.LIGHTBLUE);
                         g2d.fillRect(x * gridSide, y * gridSide, gridSide, gridSide);
                         break;
@@ -98,8 +95,8 @@ public class SimArea extends Canvas {
         cellsHeight = (int) Math.floor(getHeight() / gridSide);
         initCells();
 
-        startPos = new Position(0, 0);
-        goalPos = new Position(cellsWidth - 1, cellsHeight - 1);
+        startPos = new Pair(0, 0);
+        goalPos = new Pair(cellsWidth - 1, cellsHeight - 1);
 
         // Create tools
         toolTable = new HashMap<>();
@@ -109,8 +106,8 @@ public class SimArea extends Canvas {
                 if (goalPos.x == mouseX && goalPos.y == mouseY)
                     return;
 
-                startPos = new Position(mouseX, mouseY);
-                cells[mouseX][mouseY] = EDGE_TO_NODE_NORMAL;
+                startPos = new Pair(mouseX, mouseY);
+                cells[mouseX][mouseY] = CellType.NORMAL;
             }
         });
 
@@ -120,8 +117,8 @@ public class SimArea extends Canvas {
                 if (startPos.x == mouseX && startPos.y == mouseY)
                     return;
 
-                goalPos = new Position(mouseX, mouseY);
-                cells[mouseX][mouseY] = EDGE_TO_NODE_NORMAL;
+                goalPos = new Pair(mouseX, mouseY);
+                cells[mouseX][mouseY] = CellType.NORMAL;
             }
         });
 
@@ -134,7 +131,7 @@ public class SimArea extends Canvas {
                 if (goalPos.x == mouseX && goalPos.y == mouseY)
                     return;
 
-                cells[mouseX][mouseY] = EDGE_TO_NODE_NORMAL;
+                cells[mouseX][mouseY] = CellType.NORMAL;
             }
         });
 
@@ -147,7 +144,7 @@ public class SimArea extends Canvas {
                 if (goalPos.x == mouseX && goalPos.y == mouseY)
                     return;
 
-                cells[mouseX][mouseY] = EDGE_TO_NODE_SLOW;
+                cells[mouseX][mouseY] = CellType.OBSTACLE;
             }
         });
 
@@ -160,7 +157,7 @@ public class SimArea extends Canvas {
                 if (goalPos.x == mouseX && goalPos.y == mouseY)
                     return;
 
-                cells[mouseX][mouseY] = EDGE_TO_NODE_NONE;
+                cells[mouseX][mouseY] = CellType.IMPASSABLE;
             }
         });
 

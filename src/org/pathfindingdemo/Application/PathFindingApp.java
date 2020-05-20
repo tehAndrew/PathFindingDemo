@@ -6,10 +6,10 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 public class PathFindingApp extends Application {
-    final int WINDOW_WIDTH = 850;
-    final int WINDOW_HEIGHT = 800;
+    final int WINDOW_WIDTH = 1600;
+    final int WINDOW_HEIGHT = 896;
     final int SIM_AREA_WIDTH = WINDOW_WIDTH;
-    final int SIM_AREA_HEIGHT = 750;
+    final int SIM_AREA_HEIGHT = 832;
     final int CONTROL_PANE_WIDTH = WINDOW_WIDTH;
     final int CONTROL_PANE_HEIGHT = WINDOW_HEIGHT - SIM_AREA_HEIGHT;
 
@@ -27,7 +27,7 @@ public class PathFindingApp extends Application {
         stage.setScene(scene);
 
         // Setup the simulation area.
-        SimArea simArea = new SimArea(0, 0, SIM_AREA_WIDTH, SIM_AREA_HEIGHT, 50);
+        SimArea simArea = new SimArea(0, 0, SIM_AREA_WIDTH, SIM_AREA_HEIGHT, 32);
 
         // Setup the control panel.
         ControlPane controlPane = new ControlPane(0, SIM_AREA_HEIGHT, CONTROL_PANE_WIDTH, CONTROL_PANE_HEIGHT);
@@ -35,7 +35,8 @@ public class PathFindingApp extends Application {
         controlPane.addButton("Run", (event) -> simArea.run());
         controlPane.addButton("Reset", (event) -> simArea.reset());
 
-        controlPane.addChoiceBox(simArea.getDrawToolNames(), (obsValue, oldVal, newVal) -> simArea.setDrawTool(newVal));
+        controlPane.addChoiceBox("Tools", simArea.getDrawToolNames(), (obsValue, oldVal, newVal) -> simArea.setDrawTool(newVal));
+        controlPane.addChoiceBox("Heuristics", simArea.getHeuristicNames(), (obsValue, oldVal, newVal) -> simArea.setHeuristic(newVal));
 
         // Add the control panel and the simulation area to the root.
         root.getChildren().addAll(simArea, controlPane);

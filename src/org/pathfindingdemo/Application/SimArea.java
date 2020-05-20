@@ -1,3 +1,4 @@
+import javafx.animation.AnimationTimer;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -19,7 +20,11 @@ public class SimArea extends Canvas {
     private Pair startPos;
     private Pair goalPos;
     private HashMap<String, SimAreaTool> toolTable;
+    private HashMap<String, Heuristic> heuristicTable;
     private SimAreaTool selectedTool;
+    private Heuristic selectedHeuristic;
+    private AStar aStar;
+    private AnimationTimer runTimer;
 
     private void initCells() {
         cells = new CellType[cellsWidth][cellsHeight];
@@ -59,6 +64,9 @@ public class SimArea extends Canvas {
             }
         }
 
+        if (aStar != null)
+            aStar.draw(g2d, gridSide);
+
         // Draw start and goal
         g2d.setFill(Color.BLACK);
         g2d.setFont(new Font(30));
@@ -67,6 +75,7 @@ public class SimArea extends Canvas {
         g2d.fillText("A", startPos.x * gridSide + gridSide * 0.5, startPos.y * gridSide + gridSide * 0.5);
         g2d.fillText("B", goalPos.x * gridSide + gridSide * 0.5, goalPos.y * gridSide + gridSide * 0.5);
 
+        g2d.setStroke(Color.DARKGRAY);
         // Draw grid.
         for (int x = gridSide; x < getWidth(); x += gridSide) {
             g2d.strokeLine(x, 0, x, getHeight());
@@ -100,57 +109,43 @@ public class SimArea extends Canvas {
 
         // Create tools
         toolTable = new HashMap<>();
-        toolTable.put("Place Start", new SimAreaTool() {
-            @Override
-            public void useTool(int mouseX, int mouseY) {
-                if (goalPos.x == mouseX && goalPos.y == mouseY)
-                    return;
+        toolTable.put("Place Start", (int mouseX, int mouseY) -> {
+            if (goalPos.x == mouseX && goalPos.y == mouseY)
+                return;
 
-                startPos = new Pair(mouseX, mouseY);
-                cells[mouseX][mouseY] = CellType.NORMAL;
-            }
+            startPos = new Pair(mouseX, mouseY);
+            cells[mouseX][mouseY] = CellType.NORMAL;
         });
 
-        toolTable.put("Place End", new SimAreaTool() {
-            @Override
-            public void useTool(int mouseX, int mouseY) {
-                if (startPos.x == mouseX && startPos.y == mouseY)
-                    return;
+        toolTable.put("Place End", (int mouseX, int mouseY) -> {
+            if (startPos.x == mouseX && startPos.y == mouseY)
+                return;
 
-                goalPos = new Pair(mouseX, mouseY);
-                cells[mouseX][mouseY] = CellType.NORMAL;
-            }
+            goalPos = new Pair(mouseX, mouseY);
+            cells[mouseX][mouseY] = CellType.NORMAL;
         });
 
-        toolTable.put("Draw Normal Cell", new SimAreaTool() {
-            @Override
-            public void useTool(int mouseX, int mouseY) {
-                if (startPos.x == mouseX && startPos.y == mouseY)
-                    return;
+        toolTable.put("Draw Normal Cell", (int mouseX, int mouseY) -> {
+            if (startPos.x == mouseX && startPos.y == mouseY)
+                return;
 
-                if (goalPos.x == mouseX && goalPos.y == mouseY)
-                    return;
+            if (goalPos.x == mouseX && goalPos.y == mouseY)
+                return;
 
-                cells[mouseX][mouseY] = CellType.NORMAL;
-            }
+            cells[mouseX][mouseY] = CellType.NORMAL;
         });
 
-        toolTable.put("Draw Slow Cell", new SimAreaTool() {
-            @Override
-            public void useTool(int mouseX, int mouseY) {
-                if (startPos.x == mouseX && startPos.y == mouseY)
-                    return;
+        toolTable.put("Draw Slow Cell", (int mouseX, int mouseY) -> {
+            if (startPos.x == mouseX && startPos.y == mouseY)
+                return;
 
-                if (goalPos.x == mouseX && goalPos.y == mouseY)
-                    return;
+            if (goalPos.x == mouseX && goalPos.y == mouseY)
+                return;
 
-                cells[mouseX][mouseY] = CellType.OBSTACLE;
-            }
+            cells[mouseX][mouseY] = CellType.OBSTACLE;
         });
 
-        toolTable.put("Draw Solid Cell", new SimAreaTool() {
-            @Override
-            public void useTool(int mouseX, int mouseY) {
+        toolTable.put("Draw Solid Cell", (int mouseX, int mouseY) -> {
                 if (startPos.x == mouseX && startPos.y == mouseY)
                     return;
 
@@ -158,30 +153,80 @@ public class SimArea extends Canvas {
                     return;
 
                 cells[mouseX][mouseY] = CellType.IMPASSABLE;
-            }
         });
 
         selectedTool = toolTable.get("Draw Normal Cell");
 
+        // Create Heuristics
+        heuristicTable = new HashMap<>();
+        heuristicTable.put("Dijkstra", (Pair fromPos, Pair endPos) -> {
+            return 0.;
+        });
+
+        heuristicTable.put("Diagonal distance", (Pair fromPos, Pair endPos) -> {
+            int dx = Math.abs(fromPos.x - endPos.x);
+            int dy = Math.abs(fromPos.y - endPos.y);
+            return AStar.NORMAL_WEIGHT * (dx + dy) +
+                    (AStar.DIAGONAL_COST_FACTOR * AStar.NORMAL_WEIGHT - 2 * AStar.NORMAL_WEIGHT)
+                    * Math.min(dx, dy);
+        });
+
+        heuristicTable.put("Euclidean", (Pair fromPos, Pair endPos) -> {
+            int dx = Math.abs(fromPos.x - endPos.x);
+            int dy = Math.abs(fromPos.y - endPos.y);
+            return AStar.NORMAL_WEIGHT * Math.sqrt(dx * dx + dy * dy);
+        });
+
+        heuristicTable.put("Manhattan", (Pair fromPos, Pair endPos) -> {
+            int dx = Math.abs(fromPos.x - endPos.x);
+            int dy = Math.abs(fromPos.y - endPos.y);
+            return AStar.NORMAL_WEIGHT * (dx + dy);
+        });
+
+        selectedHeuristic = heuristicTable.get("Diagonal distance");
+
+        setOnMouseClicked((event -> useTool(event)));
         setOnMouseDragged((event -> useTool(event)));
+
+        runTimer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                iterate();
+            }
+        };
 
         draw();
     }
 
     public void iterate() {
-        System.out.println("iterate");
+        if (aStar == null) {
+            aStar = new AStar(startPos, goalPos, new Pair(cellsWidth, cellsHeight), selectedHeuristic, cells);
+        }
+        aStar.iterate();
+        draw();
     }
 
     public void run() {
-        System.out.println("run");
+        //runTimer.start();
+        if (aStar == null) {
+            aStar = new AStar(startPos, goalPos, new Pair(cellsWidth, cellsHeight), selectedHeuristic, cells);
+        }
+        aStar.run();
+        draw();
     }
 
     public void reset() {
-        System.out.println("reset");
+        runTimer.stop();
+        aStar = null;
+        draw();
     }
 
     public void setDrawTool(final String tool) {
         selectedTool = toolTable.get(tool);
+    }
+
+    public void setHeuristic(final String heuristic) {
+        selectedHeuristic = heuristicTable.get(heuristic);
     }
 
     public String[] getDrawToolNames() {
@@ -189,5 +234,12 @@ public class SimArea extends Canvas {
         String[] toolNameArr = toolNameSet.toArray(new String[toolNameSet.size()]);
         Arrays.sort(toolNameArr);
         return toolNameArr;
+    }
+
+    public String[] getHeuristicNames() {
+        Set<String> heuristicNameSet = heuristicTable.keySet();
+        String[] heuristicNameArr = heuristicNameSet.toArray(new String[heuristicNameSet.size()]);
+        Arrays.sort(heuristicNameArr);
+        return heuristicNameArr;
     }
 }
